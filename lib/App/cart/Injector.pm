@@ -20,6 +20,7 @@ sub new {
         alltimes  => \@alltimes,
         todotimes => \@todotimes,
         maxrate   => $conf->{maxrate},
+        keywords  => $conf->{keywords},
     }, $class;
     
     # Get an authenticated Twitter client
@@ -99,11 +100,15 @@ sub tweet {
 
     my $tweet = $self->{buffer}->bshift;
     if ($tweet) {
-        my $text  = $tweet->{data};
-        $text =~ s/\#cp//;
-        my $user  = $tweet->{user};
+        my $text = $tweet->{data};
 
-        $self->{nt}->update(sprintf("RT %s: %s", $user, $text));
+        # Delete our keywords
+        my @kw   = @{ $self->{keywords} };
+        foreach (@kw) {
+            $text =~ s/$_//;
+        }
+        my $user = $tweet->{user};
+        $self->{nt}->update(sprintf("RT \@%s: %s", $user, $text));
     }
 }
 
