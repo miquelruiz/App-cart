@@ -12,7 +12,8 @@ sub new {
     my ($class, $conf) = @_;
 
     my $self = bless {
-        buffer => App::cart::Buffer->new($conf),
+        buffer   => App::cart::Buffer->new($conf),
+        keywords => $conf->{keywords},
     }, $class;
 
     $self->{stream} = AnyEvent::Twitter::Stream->new(
@@ -47,13 +48,13 @@ sub filter {
         } @{$conf->{user_names}};
     }
 
-    # Get keywords to monitor
-    my @track;
-    @track = @{ $conf->{keywords} } if $conf->{keywords};
+#    # Get keywords to monitor
+#    my @track;
+#    @track = @{ $conf->{keywords} } if $conf->{keywords};
 
     my $filter = { method => 'filter' };
     $filter->{follow} = join(',', @ids)   if @ids;
-    $filter->{track}  = join(',', @track) if @track;
+#    $filter->{track}  = join(',', @track) if @track;
 
     return $filter;
 }
@@ -63,7 +64,25 @@ sub on_tweet {
     my ($self, $tweet) = @_;
 
     print STDERR "got tweet " . $self->{buffer}->count . "\n";
-    $self->{buffer}->bpush($tweet);
+    $self->{buffer}->bpush($tweet) if $self->is_valid($tweet);
+}
+
+sub is_valid {
+    my ($self, $tweet) = @_;
+
+    # Check for a delete
+    return 0 if defined $tweet->{delete};
+
+    # This is one of our users' tweet. Check if it's a RT
+    return 0 if $tweet->{retweeted};
+
+    # Search for at least one of our keywords
+    my @kw = @{ $self->{keywords} };
+    foreach (@kw) {
+        return 1 if ($tweet->{text} =~ /$_/);
+    }
+
+    return 0;
 }
 
 1;
