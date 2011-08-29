@@ -1,0 +1,8 @@
+#!perl
+
+use strict;
+use App::cart;
+
+my $app = App::cart->new(@ARGV);
+$app->run;
+
