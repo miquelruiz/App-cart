@@ -3,6 +3,8 @@ package App::cart::Buffer;
 use strict;
 use warnings;
 
+use autodie;
+
 use DBI;
 use Data::Dumper;
 

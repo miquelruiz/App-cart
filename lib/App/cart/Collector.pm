@@ -16,13 +16,16 @@ sub new {
         keywords => $conf->{keywords},
     }, $class;
 
+    my $filter = $self->filter($conf);
+    $self->{follow} = $filter->{follow};
+
     $self->{stream} = AnyEvent::Twitter::Stream->new(
         consumer_key    => $conf->{oauth}->{consumer_key},
         consumer_secret => $conf->{oauth}->{consumer_secret},
         token           => $conf->{oauth}->{access_token},
         token_secret    => $conf->{oauth}->{access_token_secret},
         on_tweet        => sub { $self->on_tweet(shift); },
-        %{ $self->filter($conf) },
+        %$filter,
     );
 
     return $self;
@@ -48,13 +51,8 @@ sub filter {
         } @{$conf->{user_names}};
     }
 
-#    # Get keywords to monitor
-#    my @track;
-#    @track = @{ $conf->{keywords} } if $conf->{keywords};
-
     my $filter = { method => 'filter' };
     $filter->{follow} = join(',', @ids)   if @ids;
-#    $filter->{track}  = join(',', @track) if @track;
 
     return $filter;
 }
@@ -64,22 +62,36 @@ sub on_tweet {
     my ($self, $tweet) = @_;
 
     print STDERR "got tweet " . $self->{buffer}->count . "\n";
-    $self->{buffer}->bpush($tweet) if $self->is_valid($tweet);
+    if (defined $tweet->{text}) {
+        my $user = $tweet->{user}->{screen_name};
+        my $text = $tweet->{text};
+        print STDERR "$user: $text\n" if defined $tweet->{text};
+        if ($self->is_valid($tweet)) {
+            $self->{buffer}->bpush($tweet);
+            print STDERR "Buffered!\n";
+        } else {
+            print STDERR "Not buffered\n";
+        }
+    }
 }
 
 sub is_valid {
     my ($self, $tweet) = @_;
 
-    # Check for a delete
-    return 0 if defined $tweet->{delete};
-
     # This is one of our users' tweet. Check if it's a RT
     return 0 if $tweet->{retweeted};
+
+    # Check if this is one of our user's tweet
+    my $user = $tweet->{user}->{id};
+    return 0 unless $self->{follow} =~ /$user/;
 
     # Search for at least one of our keywords
     my @kw = @{ $self->{keywords} };
     foreach (@kw) {
-        return 1 if ($tweet->{text} =~ /$_/);
+        if ($tweet->{text} =~ /$_/) {
+            print STDERR "Got a match with $_\n";
+            return 1;
+        }
     }
 
     return 0;

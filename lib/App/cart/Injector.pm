@@ -31,6 +31,7 @@ sub new {
 
     # Handler to execute on publish times
     my $handler = sub {
+        print STDERR "Executing scheduled job!\n";
         # Cancel the current publishing loop
         undef $self->{publisher};
         $self->reeschedule;
@@ -57,7 +58,14 @@ sub start {
 sub reeschedule {
     my ($self) = @_;
 
-    my $tweets = $self->{buffer}->count / scalar @{ $self->{todotimes} };
+    my $count  = $self->{buffer}->count;
+    print STDERR "There are $count tweets to publish\n";
+
+    my $tweets = $count / scalar @{ $self->{todotimes} };
+    return unless $tweets;
+    $tweets = 1 if $tweets < 1;
+    $self->{tweets_left} = $tweets;
+    print "Will publish $tweets tweets until next publish time\n";
 
     my ($h, $m) = split(/:/, shift(@{ $self->{todotimes} }));
     my $dtnow = DateTime->today;
@@ -78,20 +86,24 @@ sub reeschedule {
     $dtnext->set_minute($nextm);
 
     my $dur = $dtnext->subtract_datetime($dtnow);
-    my $min = $dur->in_units('seconds');
+    my $sec = $dur->in_units('minutes') * 60;
 
-    my $calc_interval = $min / $tweets;
-    my $interval = $calc_interval > $self->{maxrate}
-        ? $calc_interval
-        : $self->{maxrate};
+    print STDERR "$sec secs until next publish time\n";
 
-    # Store the interval to report statistics
-    $self->{current_rate} = $interval;
+    my $maxrate       = $self->{maxrate} * 60;
+    my $calc_interval = $sec / $tweets;
+    my $interval = $calc_interval > $maxrate ? $calc_interval : $maxrate;
+
+    print STDERR "Publishing with an interval of $interval secs\n";
 
     $self->{publisher} = AnyEvent->timer(
         after    => 0,
         interval => $interval,
-        cb       => sub { $self->tweet; }
+        cb       => sub {
+            $self->tweet;
+            $self->{tweets_left} = $self->{tweets_left} - 1;
+            undef $self->{publisher} unless $self->{tweets_left};
+        }
     );
 };
 
@@ -99,7 +111,7 @@ sub tweet {
     my ($self) = @_;
 
     my $tweet = $self->{buffer}->bshift;
-    if ($tweet) {
+    if (defined $tweet and defined $tweet->{data}) {
         my $text = $tweet->{data};
 
         # Delete our keywords
@@ -107,8 +119,14 @@ sub tweet {
         foreach (@kw) {
             $text =~ s/$_//;
         }
-        my $user = $tweet->{user};
-        $self->{nt}->update(sprintf("RT \@%s: %s", $user, $text));
+        eval { $self->{nt}->update($text); };
+        if ($@) { warn "Couldn't update: $@\n"; }
+        else    { print STDERR "Just tweeted: $text\n"; }
+
+    } else {
+        # Stop publication
+        undef $self->{publisher};
+        print STDERR "Publication stopped: no more buffered tweets\n";
     }
 }
 
