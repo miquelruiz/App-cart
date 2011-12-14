@@ -63,7 +63,7 @@ sub run {
 
     my $command  = shift @ARGV || 'start';
     my $function = "run_$command";
-   
+
     $self->config if ($command ne 'init');
 
     if ($self->can($function)) {
@@ -82,50 +82,59 @@ sub run_start {
 
 sub run_init {
     my $self = shift;
-   
+
     unless (-d $self->{home}) {
         unless (mkdir $self->{home}) {
             die "Can't create home dir at $self->{home}\n";
         }
     }
     
-    unless (-f "$self->{home}/$self->{conffile}") {
-        
-        require Term::ReadLine;
-        require OAuth::Lite::Consumer;
+    $self->init_env() unless (-f "$self->{home}/$self->{conffile}");
 
-        my $consumer_key    = 'AulRZomifEbzRAAqDg9CXg';
-        my $consumer_secret = '5BsR6pEwBO31xWLMoi0FFn8o0oWyp4j997FPupqoP4';
-        my $c = OAuth::Lite::Consumer->new(
-            consumer_key        => $consumer_key,
-            consumer_secret     => $consumer_secret,
-            site                => 'http://api.twitter.com',
-            request_token_path  => '/oauth/request_token',
-            access_token_path   => '/oauth/access_token',
-            authorize_path      => '/oauth/authorize',
-        );
+    $self->config;
 
-        my $req_token = $c->get_request_token(
-            callback_url => 'oob',
-        );
+    $self->{injector}->init;
+    $self->{collector}->init;
+}
 
-        print "You should visit: \n" . $c->url_to_authorize(
-            token => $req_token,
-        ) . "\n";
+sub init_env {
+    my $self = shift;
 
-        my $term = Term::ReadLine->new('CaRT');
-        my $pin  = $term->readline('PIN: ');
+    require Term::ReadLine;
+    require OAuth::Lite::Consumer;
 
-        my $access = $c->get_access_token(
-            token    => $req_token,
-            verifier => $pin,
-        );
+    my $consumer_key    = 'AulRZomifEbzRAAqDg9CXg';
+    my $consumer_secret = '5BsR6pEwBO31xWLMoi0FFn8o0oWyp4j997FPupqoP4';
+    my $c = OAuth::Lite::Consumer->new(
+        consumer_key        => $consumer_key,
+        consumer_secret     => $consumer_secret,
+        site                => 'http://api.twitter.com',
+        request_token_path  => '/oauth/request_token',
+        access_token_path   => '/oauth/access_token',
+        authorize_path      => '/oauth/authorize',
+    );
 
-        my $access_token        = $access->token;
-        my $access_token_secret = $access->secret;
+    my $req_token = $c->get_request_token(
+        callback_url => 'oob',
+    );
 
-        open CONFFILE, '>', "$self->{home}/$self->{conffile}";
-        print CONFFILE <<CONF;
+    print "You should visit: \n" . $c->url_to_authorize(
+        token => $req_token,
+    ) . "\n";
+
+    my $term = Term::ReadLine->new('CaRT');
+    my $pin  = $term->readline('PIN: ');
+
+    my $access = $c->get_access_token(
+        token    => $req_token,
+        verifier => $pin,
+    );
+
+    my $access_token        = $access->token;
+    my $access_token_secret = $access->secret;
+
+    open CONFFILE, '>', "$self->{home}/$self->{conffile}";
+    print CONFFILE <<CONF;
 #--
 oauth:
     consumer_key        : $consumer_key
@@ -150,13 +159,7 @@ publishtimes:
     - '21:00'
 
 CONF
-        close CONFFILE;
-    }
-
-    $self->config;
-
-    $self->{injector}->init;
-    $self->{collector}->init;
+    close CONFFILE;
 }
 
 1;
