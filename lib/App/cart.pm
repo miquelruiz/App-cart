@@ -13,6 +13,8 @@ use Getopt::Long ();
 use App::cart::Injector;
 use App::cart::Collector;
 
+use Log::Any '$log';
+
 sub new {
     my $class = shift;
 
@@ -32,39 +34,38 @@ sub config {
         'h|home=s'     => \$self->{home},
         'c|conffile=s' => \$self->{conffile},
         'p|pidfile=s'  => \$self->{pidfile},
-    );
+        'l|loglevel=s' => \$self->{loglevel},
+    ) or die "Error parsing options\n";
 
-    if (!-d $self->{home}) {
+    my $command = $ARGV[0];
+
+    if (!-d $self->{home} and $command ne 'init') {
         die <<NOHOME;
 $self->{home} is not a valid home directory.
 Run 'cart --home $self->{home} init' first.
 NOHOME
     }
 
-    if (!-f "$self->{home}/$self->{conffile}") {
+    if (!-f "$self->{home}/$self->{conffile}" and $command ne 'init') {
         die <<NOCONF
 Can't read conffile $self->{conffile}.
 Run 'cart --home $self->{home} init' first.
 NOCONF
     }
 
+    Log::Any->set_adapter('+App::cart::Logger', level => $self->{loglevel});
+
     $self->{config}   = YAML::Any::LoadFile("$self->{home}/$self->{conffile}");
     $self->{config}->{home} = $self->{home};
-
-    $self->{injector}  = App::cart::Injector->new($self->{config});
-    print "Got injector\n";
-    $self->{collector} = App::cart::Collector->new($self->{config});
-    print "Got collector\n";
-    
 }
 
 sub run {
     my ($self) = @_;
 
+    $self->config;
+
     my $command  = shift @ARGV || 'start';
     my $function = "run_$command";
-
-    $self->config if ($command ne 'init');
 
     if ($self->can($function)) {
         $self->$function(@ARGV);
@@ -76,7 +77,13 @@ sub run {
 sub run_start {
     my $self = shift;
 
-    print "Starting...\n";
+    $log->info('Setting up injector');
+    $self->{injector}  = App::cart::Injector->new($self->{config});
+
+    $log->info('Setting up collector') if $log->is_alert;
+    $self->{collector} = App::cart::Collector->new($self->{config});
+
+    $log->info('Started');
     $self->{injector}->start;
 }
 
@@ -88,7 +95,7 @@ sub run_init {
             die "Can't create home dir at $self->{home}\n";
         }
     }
-    
+
     $self->init_env() unless (-f "$self->{home}/$self->{conffile}");
 
     $self->config;
