@@ -25,6 +25,10 @@ sub new {
         token           => $conf->{oauth}->{access_token},
         token_secret    => $conf->{oauth}->{access_token_secret},
         on_tweet        => sub { $self->on_tweet(shift); },
+        on_error        => sub {
+            print STDERR "Got error: " . join("\n", @_) . "\n";
+            die;
+        },
         %$filter,
     );
 
