@@ -15,6 +15,8 @@ our @CARP_NOT = qw(
     App::cart::Logger
 );
 
+binmode *STDOUT, ':encoding(UTF-8)';
+
 my $i = 0;
 my @methods = Log::Any->logging_methods;
 my %levels  = map { $_ => $i++ } @methods;
