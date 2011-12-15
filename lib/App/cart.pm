@@ -56,7 +56,13 @@ NOCONF
     Log::Any->set_adapter('+App::cart::Logger', level => $self->{loglevel});
 
     $self->{config}   = YAML::Any::LoadFile("$self->{home}/$self->{conffile}");
-    $self->{config}->{home} = $self->{home};
+    $self->{config}->{home}     = $self->{home};
+    $self->{config}->{loglevel} = $self->{loglevel};
+
+    if ($log->is_debug) {
+        require Data::Dumper;
+        $log->debug(Data::Dumper::Dumper($self));
+    }
 }
 
 sub run {

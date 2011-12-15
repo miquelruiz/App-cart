@@ -3,6 +3,8 @@ package App::cart::Collector;
 use strict;
 use warnings;
 
+use Log::Any '$log';
+
 use Net::Twitter;
 use AnyEvent::Twitter::Stream;
 
@@ -11,12 +13,18 @@ use App::cart::Buffer;
 sub new {
     my ($class, $conf) = @_;
 
+    Log::Any->set_adapter('+App::cart::Logger', level => $conf->{loglevel});
     my $self = bless {
         buffer   => App::cart::Buffer->new($conf),
         keywords => $conf->{keywords},
     }, $class;
 
     my $filter = $self->filter($conf);
+    if ($log->is_debug) {
+        require Data::Dumper;
+        $log->debug(Data::Dumper::Dumper($filter));
+    }
+
     $self->{follow} = $filter->{follow};
 
     $self->{stream} = AnyEvent::Twitter::Stream->new(
@@ -26,7 +34,7 @@ sub new {
         token_secret    => $conf->{oauth}->{access_token_secret},
         on_tweet        => sub { $self->on_tweet(shift); },
         on_error        => sub {
-            print STDERR "Got error: " . join("\n", @_) . "\n";
+            $log->critical("Got error: " . join("|", @_));
             die;
         },
         %$filter,
@@ -65,16 +73,16 @@ sub filter {
 sub on_tweet {
     my ($self, $tweet) = @_;
 
-    print STDERR "got tweet " . $self->{buffer}->count . "\n";
+    $log->debug('got tweet ' . $self->{buffer}->count);
     if (defined $tweet->{text}) {
         my $user = $tweet->{user}->{screen_name};
         my $text = $tweet->{text};
-        print STDERR "$user: $text\n" if defined $tweet->{text};
+        $log->info("$user: $text") if defined $tweet->{text};
         if ($self->is_valid($tweet)) {
             $self->{buffer}->bpush($tweet);
-            print STDERR "Buffered!\n";
+            $log->info('Buffered!');
         } else {
-            print STDERR "Not buffered\n";
+            $log->info('Not buffered');
         }
     }
 }
@@ -93,7 +101,7 @@ sub is_valid {
     my @kw = @{ $self->{keywords} };
     foreach (@kw) {
         if ($tweet->{text} =~ /$_/) {
-            print STDERR "Got a match with $_\n";
+            $log->debug("Got a match with $_");
             return 1;
         }
     }

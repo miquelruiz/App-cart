@@ -3,7 +3,8 @@ package App::cart::Injector;
 use strict;
 use warnings;
 
-use DBI;
+use Log::Any '$log';
+
 use Net::Twitter;
 use AnyEvent::DateTime::Cron;
 
@@ -11,6 +12,8 @@ use App::cart::Buffer;
 
 sub new {
     my ($class, $conf) = @_;
+
+    Log::Any->set_adapter('+App::cart::Logger', level => $conf->{loglevel});
 
     my @alltimes  = @{ $conf->{publishtimes} };
     my @todotimes = @{ $conf->{publishtimes} };
@@ -31,7 +34,7 @@ sub new {
 
     # Handler to execute on publish times
     my $handler = sub {
-        print STDERR "Executing scheduled job!\n";
+        $log->debug('Executing scheduled job!');
         # Cancel the current publishing loop
         undef $self->{publisher};
         $self->reeschedule;
@@ -59,13 +62,13 @@ sub reeschedule {
     my ($self) = @_;
 
     my $count  = $self->{buffer}->count;
-    print STDERR "There are $count tweets to publish\n";
+    $log->debug("There are $count tweets to publish");
 
     my $tweets = $count / scalar @{ $self->{todotimes} };
     return unless $tweets;
     $tweets = 1 if $tweets < 1;
     $self->{tweets_left} = $tweets;
-    print "Will publish $tweets tweets until next publish time\n";
+    $log->debug("Will publish $tweets tweets until next publish time");
 
     my ($h, $m) = split(/:/, shift(@{ $self->{todotimes} }));
     my $dtnow = DateTime->today;
@@ -88,13 +91,13 @@ sub reeschedule {
     my $dur = $dtnext->subtract_datetime($dtnow);
     my $sec = $dur->in_units('minutes') * 60;
 
-    print STDERR "$sec secs until next publish time\n";
+    $log->debug("$sec secs until next publish time");
 
     my $maxrate       = $self->{maxrate} * 60;
     my $calc_interval = $sec / $tweets;
     my $interval = $calc_interval > $maxrate ? $calc_interval : $maxrate;
 
-    print STDERR "Publishing with an interval of $interval secs\n";
+    $log->debug("Publishing with an interval of $interval secs");
 
     $self->{publisher} = AnyEvent->timer(
         after    => 0,
@@ -120,13 +123,13 @@ sub tweet {
             $text =~ s/$_//;
         }
         eval { $self->{nt}->update($text); };
-        if ($@) { warn "Couldn't update: $@\n"; }
-        else    { print STDERR "Just tweeted: $text\n"; }
+        if ($@) { $log->error("Couldn't update: $@"); }
+        else    { $log->info("Just tweeted: $text" ); }
 
     } else {
         # Stop publication
         undef $self->{publisher};
-        print STDERR "Publication stopped: no more buffered tweets\n";
+        $log->debug('Publication stopped: no more buffered tweets');
     }
 }
 
