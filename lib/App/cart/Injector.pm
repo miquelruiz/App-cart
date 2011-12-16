@@ -122,6 +122,7 @@ sub tweet {
         foreach (@kw) {
             $text =~ s/$_//;
         }
+        utf8::decode($text);
         eval { $self->{nt}->update($text); };
         if ($@) { $log->error("Couldn't update: $@"); }
         else    { $log->info("Just tweeted: $text" ); }
