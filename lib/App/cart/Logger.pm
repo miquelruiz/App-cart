@@ -20,11 +20,12 @@ binmode *STDOUT, ':encoding(UTF-8)';
 my $i = 0;
 my @methods = Log::Any->logging_methods;
 my %levels  = map { $_ => $i++ } @methods;
+$levels{none} = $i;
 
 sub init {
     my ($self) = @_;
     $self->{level} ||= 'info';
-    
+
     croak "Unknown log level: '$self->{level}'"
         unless defined $levels{$self->{level}};
 }
