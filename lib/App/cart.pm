@@ -22,6 +22,7 @@ sub new {
         home     => "$ENV{HOME}/.cart",
         conffile => 'cart.yml',
         pidfile  => 'cart.pid',
+        options  => [ @_ ],
     }, $class;
 
     return $self;
@@ -30,23 +31,25 @@ sub new {
 sub config {
     my $self = shift;
 
-    Getopt::Long::GetOptions(
+    Getopt::Long::GetOptionsFromArray($self->{options},
         'h|home=s'     => \$self->{home},
         'c|conffile=s' => \$self->{conffile},
         'p|pidfile=s'  => \$self->{pidfile},
         'l|loglevel=s' => \$self->{loglevel},
     ) or die "Error parsing options\n";
 
-    my $command = $ARGV[0];
+    my $command = $self->{command} = shift @{ $self->{options} } || 'start';
 
-    if (!-d $self->{home} and $command ne 'init') {
+    if (    !-d $self->{home}
+        and (not defined $command or $command ne 'init')) {
         die <<NOHOME;
 $self->{home} is not a valid home directory.
 Run 'cart --home $self->{home} init' first.
 NOHOME
     }
 
-    if (!-f "$self->{home}/$self->{conffile}" and $command ne 'init') {
+    if (    !-f "$self->{home}/$self->{conffile}"
+        and (not defined $command or $command ne 'init')) {
         die <<NOCONF
 Can't read conffile $self->{conffile}.
 Run 'cart --home $self->{home} init' first.
@@ -55,13 +58,17 @@ NOCONF
 
     Log::Any->set_adapter('+App::cart::Logger', level => $self->{loglevel});
 
-    $self->{config}   = YAML::Any::LoadFile("$self->{home}/$self->{conffile}");
+    if ($command ne 'init') {
+        $self->{config}   = YAML::Any::LoadFile(
+            "$self->{home}/$self->{conffile}"
+        );
+    }
     $self->{config}->{home}     = $self->{home};
     $self->{config}->{loglevel} = $self->{loglevel};
 
     if ($log->is_debug) {
-        require Data::Dumper;
-        $log->debug(Data::Dumper::Dumper($self));
+        eval { use Data::Dumper; };
+        $log->debug(Dumper($self));
     }
 }
 
@@ -70,10 +77,11 @@ sub run {
 
     $self->config;
 
-    my $command  = shift @ARGV || 'start';
+    my $command  = $self->{command};
     my $function = "run_$command";
 
     if ($self->can($function)) {
+        $log->debug("Calling $function");
         $self->$function(@ARGV);
     } else {
         die "Unknown command $command\n";
@@ -103,11 +111,6 @@ sub run_init {
     }
 
     $self->init_env() unless (-f "$self->{home}/$self->{conffile}");
-
-    $self->config;
-
-    $self->{injector}->init;
-    $self->{collector}->init;
 }
 
 sub init_env {
@@ -130,21 +133,32 @@ sub init_env {
     my $req_token = $c->get_request_token(
         callback_url => 'oob',
     );
+    $log->debug("Got request token");
 
-    print "You should visit: \n" . $c->url_to_authorize(
-        token => $req_token,
-    ) . "\n";
+    my $access_token        = 'DUMMY';
+    my $access_token_secret = 'DUMMY';
 
-    my $term = Term::ReadLine->new('CaRT');
-    my $pin  = $term->readline('PIN: ');
 
-    my $access = $c->get_access_token(
-        token    => $req_token,
-        verifier => $pin,
+    if (not defined $ENV{TEST_CART_INIT}) {
+        print "You should visit the following URL: \n" . $c->url_to_authorize(
+            token => $req_token,
+        ) . "\nAnd write here the PIN you'll find there\n";
+
+        my $term = Term::ReadLine->new('CaRT');
+        my $pin  = $term->readline('PIN: ');
+
+        my $access = $c->get_access_token(
+            token    => $req_token,
+            verifier => $pin,
+        );
+        $access_token        = $access->token;
+        $access_token_secret = $access->secret;
+    }
+
+    $log->debug(
+        "Got credentials!\n\tAccess: $access_token\n" .
+        "\tSecret: $access_token_secret"
     );
-
-    my $access_token        = $access->token;
-    my $access_token_secret = $access->secret;
 
     open CONFFILE, '>', "$self->{home}/$self->{conffile}";
     print CONFFILE <<CONF;
@@ -173,6 +187,7 @@ publishtimes:
 
 CONF
     close CONFFILE;
+    $log->debug("Dumped conf file to '$self->{home}/$self->{conffile}'");
 }
 
 1;
