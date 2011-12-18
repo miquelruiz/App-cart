@@ -135,11 +135,11 @@ sub init_env {
     );
     $log->debug("Got request token");
 
-    my $access_token        = 'DUMMY';
-    my $access_token_secret = 'DUMMY';
+    my $access_token        = $ENV{CART_ACCESS_TOKEN} || '';
+    my $access_token_secret = $ENV{CART_ACCESS_TOKEN_SECRET} || '';
 
 
-    if (not defined $ENV{TEST_CART_INIT}) {
+    if (not defined $ENV{CART_TEST_INIT}) {
         print "You should visit the following URL: \n" . $c->url_to_authorize(
             token => $req_token,
         ) . "\nAnd write here the PIN you'll find there\n";
