@@ -73,6 +73,8 @@ EOF
 
     my $expected_conf = YAML::Any::Load($expected_content);
     my $got_conf      = read_config();
+    delete $got_conf->{loglevel};
+    delete $got_conf->{home};
     is_deeply($got_conf, $expected_conf, "Confs are equivalent");
 }
 

@@ -15,12 +15,13 @@ our @EXPORT = qw/
     make_tweet
 /;
 
+$ENV{CART_TEST_INIT} = 1;
+
 sub config_dir {
     return 'test-home';
 }
 
 sub write_config {
-    $ENV{CART_TEST_INIT} = 1;
     my $app = App::cart->new('-h', config_dir, '-l', 'none', 'init');
     $app->run;
 }
