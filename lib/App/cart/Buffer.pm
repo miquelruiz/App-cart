@@ -5,11 +5,15 @@ use warnings;
 
 use autodie;
 
+use Log::Any '$log';
+
 use DBI;
 use Data::Dumper;
 
 sub new {
     my ($class, $conf) = @_;
+
+    Log::Any->set_adapter('+App::cart::Logger', level => $conf->{loglevel});
 
     my $db = $conf->{home} . '/' . $conf->{database}->{dbfile};
     my $self = bless {
@@ -18,23 +22,33 @@ sub new {
             undef,
             undef,
             {
-                RaiseError => 1,
-                AutoCommit => 1,
+                PrintError      => 0,
+                RaiseError      => 1,
+                AutoCommit      => 1,
+                sqlite_unicode  => 1,
             },
         ),
     }, $class;
-    
+
+    eval { $self->{_insert} = $self->{dbh}->prepare(
+        "INSERT INTO tweets (id, data, user) VALUES (?, ?, ?);"
+    ); };
+    if ($@) {
+        if ($@ =~ /no such table/) {
+            $self->init;
+            $self->{_insert} = $self->{dbh}->prepare(
+                "INSERT INTO tweets (id, data, user) VALUES (?, ?, ?);"
+            );
+        } else {
+            die $@;
+        };
+    }
+
     return $self;
 }
 
 sub bpush {
     my ($self, $tweet) = @_;
-
-    unless ($self->{_insert}) {
-        $self->{_insert} = $self->{dbh}->prepare(
-            "INSERT INTO tweets (id, data, user) VALUES (?, ?, ?);"
-        );
-    }
 
     eval { $self->{_insert}->execute(
         $tweet->{id},
@@ -42,15 +56,16 @@ sub bpush {
         $tweet->{user}->{screen_name}
     ); };
     if ($@) {
-        print STDERR "Looks like an insert failed!\n";
-        print STDERR Dumper($tweet);
+        $log->error("Looks like an insert failed!\n");
+        $log->debug(Dumper($tweet)) if $log->is_debug;
+        die $@;
     }
 
 }
 
 sub bshift {
     my $self = shift;
-    
+
     my $dbh = $self->{dbh};
     $dbh->begin_work;
 
@@ -74,6 +89,7 @@ sub count {
 }
 
 sub init {
+    $log->debug("Initializing tweets buffer");
     shift->{dbh}->do(
         'CREATE TABLE tweets (id VARCHAR(30) PRIMARY KEY, data TEXT, user VARCHAR(16));'
     );

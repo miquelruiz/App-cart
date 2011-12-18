@@ -37,9 +37,10 @@ sub cleanup_config {
     system(qw/rm -Rf/, config_dir);
 }
 
+my $rand = int rand(999);
 sub make_tweet {
     return {
-        id   => scalar rand(999),
+        id   => $rand++,
         text => shift,
         user => { screen_name => 'test' },
     };
