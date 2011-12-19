@@ -8,7 +8,7 @@ use lib ("$Bin", "$Bin/../lib");
 
 use App::cart::TestUtils;
 
-use Test::More;
+use Test::More tests => 11;
 use Test::Exception;
 
 BEGIN { use_ok 'App::cart::Buffer' };
@@ -42,5 +42,4 @@ is($retrieved, $data2->{id}, "Retrieved data id is second pushed");
 is($buffer->count, 0, "Buffer is empty");
 
 cleanup_config();
-done_testing(11);
 
