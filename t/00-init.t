@@ -56,7 +56,7 @@ oauth:
 database:
     dbfile: cart.db
 
-users:
+user_names:
     - twitterapi
 
 maxrate: 10

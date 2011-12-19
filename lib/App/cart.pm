@@ -94,7 +94,7 @@ sub run_start {
     $log->info('Setting up injector');
     $self->{injector}  = App::cart::Injector->new($self->{config});
 
-    $log->info('Setting up collector') if $log->is_alert;
+    $log->info('Setting up collector');
     $self->{collector} = App::cart::Collector->new($self->{config});
 
     $log->info('Started');
@@ -160,6 +160,8 @@ sub init_env {
         "\tSecret: $access_token_secret"
     );
 
+    my $user = $ENV{CART_TEST_USERNAME} || 'twitterapi';
+
     open CONFFILE, '>', "$self->{home}/$self->{conffile}";
     print CONFFILE <<CONF;
 #--
@@ -172,8 +174,8 @@ oauth:
 database:
     dbfile: cart.db
 
-users:
-    - twitterapi
+user_names:
+    - $user
 
 maxrate: 10
 
