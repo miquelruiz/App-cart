@@ -11,20 +11,19 @@ use AnyEvent::Twitter::Stream;
 use App::cart::Buffer;
 
 sub new {
-    my ($class, $conf) = @_;
+    my ($class, $conf, $test_conn_cv, $test_tweet_cv) = @_;
 
     Log::Any->set_adapter('+App::cart::Logger', level => $conf->{loglevel});
+    if ($log->is_debug) {
+        eval 'use Data::Dumper';
+    }
+
     my $self = bless {
         buffer   => App::cart::Buffer->new($conf),
         keywords => $conf->{keywords},
     }, $class;
 
     my $filter = $self->filter($conf);
-    if ($log->is_debug) {
-        require Data::Dumper;
-        $log->debug(Data::Dumper::Dumper($filter));
-    }
-
     $self->{follow} = $filter->{follow};
 
     $self->{stream} = AnyEvent::Twitter::Stream->new(
@@ -32,7 +31,14 @@ sub new {
         consumer_secret => $conf->{oauth}->{consumer_secret},
         token           => $conf->{oauth}->{access_token},
         token_secret    => $conf->{oauth}->{access_token_secret},
-        on_tweet        => sub { $self->on_tweet(shift); },
+        on_connect      => sub {
+            $log->debug("Stream connected!");
+            $test_conn_cv->send if defined $test_conn_cv;
+        },
+        on_tweet        => sub {
+            $self->on_tweet(shift);
+            $test_tweet_cv->send if defined $test_tweet_cv;
+        },
         on_error        => sub {
             $log->critical("Got error: " . join("|", @_));
             die;
@@ -59,12 +65,15 @@ sub filter {
     if ($conf->{user_names}) {
         my $nt  = Net::Twitter->new( traits => ['API::REST'] );
         push @ids, map {
-            $nt->show_user({screen_name => $_})->{id}
+            $log->debug("Resolving user_id for $_");
+            $nt->show_user({screen_name => $_})->{id};
         } @{$conf->{user_names}};
     }
 
     my $filter = { method => 'filter' };
     $filter->{follow} = join(',', @ids)   if @ids;
+    $log->debug("Filter: " . Dumper($filter->{follow}))
+        if $log->is_debug;
 
     return $filter;
 }
@@ -77,7 +86,8 @@ sub on_tweet {
     if (defined $tweet->{text}) {
         my $user = $tweet->{user}->{screen_name};
         my $text = $tweet->{text};
-        $log->info("$user: $text") if defined $tweet->{text};
+        $log->info("$user: $text");
+
         if ($self->is_valid($tweet)) {
             $self->{buffer}->bpush($tweet);
             $log->info('Buffered!');
@@ -98,6 +108,8 @@ sub is_valid {
     return 0 unless $self->{follow} =~ /$user/;
 
     # Search for at least one of our keywords
+    return 1 unless ($self->{keywords});
+
     my @kw = @{ $self->{keywords} };
     foreach (@kw) {
         if ($tweet->{text} =~ /$_/) {
