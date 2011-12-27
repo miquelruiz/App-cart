@@ -37,7 +37,7 @@ sub new {
         },
         on_tweet        => sub {
             $self->on_tweet(shift);
-            $test_tweet_cv->send if defined $test_tweet_cv;
+            $test_tweet_cv->end if defined $test_tweet_cv;
         },
         on_error        => sub {
             $log->critical("Got error: " . join("|", @_));
@@ -112,7 +112,7 @@ sub is_valid {
 
     my @kw = @{ $self->{keywords} };
     foreach (@kw) {
-        if ($tweet->{text} =~ /$_/) {
+        if ($tweet->{text} =~ /(?:\s|^)$_(?:\s|$)/) {
             $log->debug("Got a match with $_");
             return 1;
         }

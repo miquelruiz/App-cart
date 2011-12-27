@@ -24,6 +24,7 @@ SKIP: {
 
     write_config();
     my $conf = read_config();
+    $conf->{keywords} = [ '#keyword' ];
 
     # instantiate a collector
     my ($conn, $got_tweet) = (AnyEvent->condvar, AnyEvent->condvar);
@@ -37,15 +38,20 @@ SKIP: {
         traits => [qw/OAuth API::REST/],
         %{ $conf->{oauth} },
     );
-    my $text = time . ' ' . rand(1000);
-    $nt->update($text);
 
-    # Wait a little for it
+    my $text;
+    for ('#nokeyword', '#keywordcontained', '#keyword') {
+        $got_tweet->begin;
+        $text = time . ' ' . rand(1000) . ' ' . $_;
+        $nt->update($text);
+    }
+
+    # Wait for the tweets
     $got_tweet->recv;
 
     # instantiate a buffer so we can check if the collector catched it
     my $buffer = App::cart::Buffer->new($conf);
-    is($buffer->count, 1, "There's a tweet");
+    is($buffer->count, 1, "There's only one tweet");
     is($buffer->bshift->{data}, $text, "It is ours");
 
     cleanup_config();
