@@ -45,6 +45,8 @@ SKIP: {
                 and defined $ENV{CART_ACCESS_TOKEN_SECRET} );
 
     require YAML::Any;
+
+    my $user = $ENV{CART_TEST_USERNAME} || 'twitterapi';
     my $expected_content = <<EOF;
 #--
 oauth:
@@ -57,7 +59,7 @@ database:
     dbfile: cart.db
 
 user_names:
-    - twitterapi
+    - $user
 
 maxrate: 10
 
