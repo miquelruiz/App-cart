@@ -2,6 +2,8 @@ use strict;
 use warnings;
 package App::cart;
 
+# ABSTRACT: CAPSiDE ReTweeter
+
 use autodie;
 
 our $VERSION = '0.001';
