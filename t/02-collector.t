@@ -18,7 +18,7 @@ BEGIN { use_ok 'App::cart::Collector' };
 binmode *STDOUT, ':encoding(UTF-8)';
 
 SKIP: {
-    skip 'NO $ENV{CART_ACCESS_TOKEN} and $ENV{CART_ACCESS_TOKEN_SECRET}', 1
+    skip 'NO $ENV{CART_ACCESS_TOKEN} and $ENV{CART_ACCESS_TOKEN_SECRET}', 2
         unless (    defined $ENV{CART_ACCESS_TOKEN}
                 and defined $ENV{CART_ACCESS_TOKEN_SECRET} );
 
