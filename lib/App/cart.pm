@@ -38,7 +38,13 @@ sub config {
         'c|conffile=s' => \$self->{conffile},
         'p|pidfile=s'  => \$self->{pidfile},
         'l|loglevel=s' => \$self->{loglevel},
+        'help'         => \$self->{help},
     ) or die "Error parsing options\n";
+
+    if ($self->{help}) {
+        _usage();
+        exit 0;
+    };
 
     my $command = $self->{command} = shift @{ $self->{options} } || 'start';
 
@@ -192,6 +198,32 @@ publishtimes:
 CONF
     close CONFFILE;
     $log->debug("Dumped conf file to '$self->{home}/$self->{conffile}'");
+}
+
+sub _usage {
+    print <<USG;
+Usage: $0 [options] [command]
+
+Commands:
+    -h, --home      path where config, tweet db and pid file are
+    -c, --conffile  path to conffile. Defaults to \$HOME/.cart/cart.yml
+    -p, --pidfile   defaults to \$HOME/.cart/cart.pid
+    -l, --loglevel  accepted values:
+                        trace
+                        debug
+                        info (inform)
+                        notice
+                        warning (warn)
+                        error (err)
+                        critical (crit, fatal)
+                        alert
+                        emergency
+
+Options:
+    start       Starts the service. Default if no command specified
+    init        Initializes the home directory
+
+USG
 }
 
 1;
