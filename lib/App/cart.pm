@@ -1,14 +1,10 @@
-use strict;
-use warnings;
 package App::cart;
-
 # ABSTRACT: CAPSiDE ReTweeter
 
+use strict;
+use warnings;
 use autodie;
 
-our $VERSION = '0.001';
-
-use AnyEvent;
 use YAML::Any;
 use Getopt::Long ();
 
