@@ -3,6 +3,7 @@ package App::cart::Collector;
 use strict;
 use warnings;
 
+use Try::Tiny;
 use Log::Any '$log';
 
 use Net::Twitter;
@@ -65,8 +66,13 @@ sub filter {
     if ($conf->{user_names}) {
         my $nt  = Net::Twitter->new( traits => ['API::REST'] );
         push @ids, map {
-            $log->debug("Resolving user_id for $_");
-            $nt->show_user({screen_name => $_})->{id};
+            my $name = $_;
+            $log->debug("Resolving user_id for $name");
+            try {
+                $nt->show_user({screen_name => $name})->{id};
+            } catch {
+                $log->info("'$name' couldn't be resolved: $_");
+            };
         } @{$conf->{user_names}};
     }
 

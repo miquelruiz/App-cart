@@ -3,6 +3,7 @@ package App::cart::Injector;
 use strict;
 use warnings;
 
+use Try::Tiny;
 use Log::Any '$log';
 
 use Net::Twitter;
@@ -123,9 +124,16 @@ sub tweet {
             $text =~ s/$_//;
         }
         utf8::decode($text);
-        eval { $self->{nt}->update($text); };
-        if ($@) { $log->error("Couldn't update: $@"); }
-        else    { $log->info("Just tweeted: $text" ); }
+
+        my $tweeted = 0;
+        try {
+            $self->{nt}->update($text);
+            $tweeted = 1;
+        } catch {
+            $log->error("Couldn't update: $@");
+        };
+
+        $log->info("Just tweeted: $text" ) if $tweeted;
 
     } else {
         # Stop publication

@@ -5,6 +5,7 @@ use warnings;
 
 use autodie;
 
+use Try::Tiny;
 use Log::Any '$log';
 
 use DBI;
@@ -30,11 +31,12 @@ sub new {
         ),
     }, $class;
 
-    eval { $self->{_insert} = $self->{dbh}->prepare(
-        "INSERT INTO tweets (id, data, user) VALUES (?, ?, ?);"
-    ); };
-    if ($@) {
-        if ($@ =~ /no such table/) {
+    try {
+        $self->{_insert} = $self->{dbh}->prepare(
+            "INSERT INTO tweets (id, data, user) VALUES (?, ?, ?);"
+        );
+    } catch {
+        if ($_ =~ /no such table/) {
             $self->init;
             $self->{_insert} = $self->{dbh}->prepare(
                 "INSERT INTO tweets (id, data, user) VALUES (?, ?, ?);"
@@ -42,7 +44,7 @@ sub new {
         } else {
             die $@;
         };
-    }
+    };
 
     return $self;
 }
@@ -50,16 +52,18 @@ sub new {
 sub bpush {
     my ($self, $tweet) = @_;
 
-    eval { $self->{_insert}->execute(
-        $tweet->{id},
-        $tweet->{text},
-        $tweet->{user}->{screen_name}
-    ); };
-    if ($@) {
+    try {
+        $self->{_insert}->execute(
+            $tweet->{id},
+            $tweet->{text},
+            $tweet->{user}->{screen_name},
+        );
+    } catch {
         $log->error("Looks like an insert failed!\n");
         $log->debug(Dumper($tweet)) if $log->is_debug;
-        die $@;
-    }
+        # Rethrow the exception after log stuff
+        die $_;
+    };
 
 }
 
