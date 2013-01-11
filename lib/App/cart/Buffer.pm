@@ -92,10 +92,47 @@ sub count {
     return $count;
 }
 
+sub get_user_id {
+    my ($self, $name) = @_;
+    my $row;
+
+    try {
+        $row = $self->{dbh}->selectrow_hashref(
+            "SELECT id FROM users WHERE name = ?",
+            undef,
+            $name,
+        );
+    } catch {
+        $log->error("Error getting id for $name: $_");
+    };
+
+    return $row->{id};
+}
+
+sub save_user_id {
+    my ($self, $name, $id) = @_;
+    my $sth = $self->{dbh}->prepare(
+        "INSERT INTO users (name, id) VALUES (?, ?)"
+    );
+
+    try {
+        $sth->execute($name, $id);
+    } catch {
+        $log->error("Error caching $name id '$id': $_");
+    };
+}
+
 sub init {
+    my $self = shift;
     $log->debug("Initializing tweets buffer");
-    shift->{dbh}->do(
+
+    my $dbh = $self->{dbh};
+    $dbh->do(
         'CREATE TABLE tweets (id VARCHAR(30) PRIMARY KEY, data TEXT, user VARCHAR(16));'
+    );
+
+    $dbh->do(
+        'CREATE TABLE users (name VARCHAR(16) PRIMARY KEY, id VARCHAR(30));'
     );
 }
 

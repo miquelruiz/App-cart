@@ -61,19 +61,11 @@ sub filter {
     # Get user id's to follow from config
     my @ids;
     push @ids, @{$conf->{user_ids}} if ($conf->{user_ids});
-    
+
     # Resolve the user id's from usernames given in config
     if ($conf->{user_names}) {
-        my $nt  = Net::Twitter->new( traits => ['API::REST'] );
-        push @ids, map {
-            my $name = $_;
-            $log->debug("Resolving user_id for $name");
-            try {
-                $nt->show_user({screen_name => $name})->{id};
-            } catch {
-                $log->info("'$name' couldn't be resolved: $_");
-            };
-        } @{$conf->{user_names}};
+        push @ids, grep { defined }
+            map { $self->resolve_user_id($_) } @{$conf->{user_names}};
     }
 
     my $filter = { method => 'filter' };
@@ -125,6 +117,28 @@ sub is_valid {
     }
 
     return 0;
+}
+
+sub resolve_user_id {
+    my ($self, $name) = @_;
+
+    $log->debug("Resolving user_id for $name");
+    my $nt  = Net::Twitter->new( traits => ['API::REST'] );
+
+    my $id = $self->{buffer}->get_user_id($name);
+    unless (defined $id) {
+        $log->debug("Requesting ID for $name");
+        try {
+            $id = $nt->show_user({screen_name => $name})->{id};
+            $self->{buffer}->save_user_id($name, $id);
+        } catch {
+            $log->info("'$name' couldn't be resolved: $_");
+        };
+    } else {
+        $log->debug("ID for $name already resolved: $id :)");
+    }
+
+    return $id;
 }
 
 1;
