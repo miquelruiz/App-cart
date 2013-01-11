@@ -1,8 +1,49 @@
 #!/usr/bin/env perl
 
 use strict;
-use App::cart;
+use warnings;
 
-my $app = App::cart->new(@ARGV);
+use App::cart;
+use Getopt::Long;
+
+my $opts;
+GetOptions(
+    'h|home=s'     => \$opts->{home},
+    'c|conffile=s' => \$opts->{conffile},
+    'p|pidfile=s'  => \$opts->{pidfile},
+    'l|loglevel=s' => \$opts->{loglevel},
+    'help'         => \$opts->{help},
+) or _usage() and die "Error parsing options\n";
+
+_usage() and exit 0 if $opts->{help};
+
+$opts->{command} = shift @ARGV;
+my $app = App::cart->new(%$opts);
 $app->run;
+
+sub _usage {
+    print <<USG;
+Usage: $0 [options] [command]
+
+Commands:
+    -h, --home      path where config, tweet db and pid file are
+    -c, --conffile  path to conffile. Defaults to \$HOME/.cart/cart.yml
+    -p, --pidfile   defaults to \$HOME/.cart/cart.pid
+    -l, --loglevel  accepted values:
+                        trace
+                        debug
+                        info (inform)
+                        notice
+                        warning (warn)
+                        error (err)
+                        critical (crit, fatal)
+                        alert
+                        emergency
+
+Options:
+    start       Starts the service. Default if no command specified
+    init        Initializes the home directory
+
+USG
+}
 

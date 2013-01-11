@@ -14,13 +14,14 @@ use App::cart::Collector;
 use Log::Any '$log';
 
 sub new {
-    my $class = shift;
+    my ($class, %opts) = @_;
 
     my $self = bless {
         home     => "$ENV{HOME}/.cart",
         conffile => 'cart.yml',
         pidfile  => 'cart.pid',
-        options  => [ @_ ],
+        command  => 'start',
+        %opts
     }, $class;
 
     return $self;
@@ -28,21 +29,7 @@ sub new {
 
 sub config {
     my $self = shift;
-
-    Getopt::Long::GetOptionsFromArray($self->{options},
-        'h|home=s'     => \$self->{home},
-        'c|conffile=s' => \$self->{conffile},
-        'p|pidfile=s'  => \$self->{pidfile},
-        'l|loglevel=s' => \$self->{loglevel},
-        'help'         => \$self->{help},
-    ) or die "Error parsing options\n";
-
-    if ($self->{help}) {
-        _usage();
-        exit 0;
-    };
-
-    my $command = $self->{command} = shift @{ $self->{options} } || 'start';
+    my $command = $self->{command};
 
     if (    !-d $self->{home}
         and (not defined $command or $command ne 'init')) {
@@ -77,7 +64,7 @@ NOCONF
 }
 
 sub run {
-    my ($self) = @_;
+    my $self = shift;
 
     $self->config;
 
@@ -86,7 +73,7 @@ sub run {
 
     if ($self->can($function)) {
         $log->debug("Calling $function");
-        $self->$function(@ARGV);
+        $self->$function(@_);
     } else {
         die "Unknown command $command\n";
     }
@@ -194,32 +181,6 @@ publishtimes:
 CONF
     close CONFFILE;
     $log->debug("Dumped conf file to '$self->{home}/$self->{conffile}'");
-}
-
-sub _usage {
-    print <<USG;
-Usage: $0 [options] [command]
-
-Commands:
-    -h, --home      path where config, tweet db and pid file are
-    -c, --conffile  path to conffile. Defaults to \$HOME/.cart/cart.yml
-    -p, --pidfile   defaults to \$HOME/.cart/cart.pid
-    -l, --loglevel  accepted values:
-                        trace
-                        debug
-                        info (inform)
-                        notice
-                        warning (warn)
-                        error (err)
-                        critical (crit, fatal)
-                        alert
-                        emergency
-
-Options:
-    start       Starts the service. Default if no command specified
-    init        Initializes the home directory
-
-USG
 }
 
 1;

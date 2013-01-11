@@ -13,12 +13,15 @@ use Test::Exception;
 BEGIN { use_ok( 'App::cart' ); }
 
 my $dir  = "test-home";
-my @opts = ('-l', $ENV{CART_TEST_LOGLEVEL} || 'none', '-h', $dir);
+my %opts = (
+    loglevel => $ENV{CART_TEST_LOGLEVEL} || 'none',
+    home     => $dir,
+);
 
 chdir $FindBin::Bin;
 
 # Can't run if home doesn't exist
-my $app = App::cart->new(@opts);
+my $app = App::cart->new(%opts);
 throws_ok { $app->run } qr/not a valid home directory/, "Not valid home";
 
 
@@ -26,7 +29,7 @@ throws_ok { $app->run } qr/not a valid home directory/, "Not valid home";
 
 # Create home, but there won't be a config file
 mkdir $dir;
-$app = App::cart->new(@opts);
+$app = App::cart->new(%opts);
 throws_ok { $app->run } qr/Can't read conffile/, "No config file";
 rmdir $dir;
 
@@ -34,7 +37,7 @@ rmdir $dir;
 
 
 # Initialize home
-$app = App::cart->new(@opts, 'init');
+$app = App::cart->new(%opts, command => 'init');
 lives_ok { $app->run } "Init didn't die";
 ok( -d $dir, "Home created" );
 ok( -s "$dir/cart.yml", "Conffile not empty" );
