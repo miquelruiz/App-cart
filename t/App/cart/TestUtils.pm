@@ -22,7 +22,11 @@ sub config_dir {
 }
 
 sub write_config {
-    my $app = App::cart->new('-h', config_dir, '-l', 'none', 'init');
+    my $app = App::cart->new(
+        home     => config_dir,
+        loglevel => 'none',
+        command  => 'init',
+    );
     $app->run;
 }
 
