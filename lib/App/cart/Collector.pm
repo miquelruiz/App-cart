@@ -22,6 +22,7 @@ sub new {
     my $self = bless {
         buffer   => App::cart::Buffer->new($conf),
         keywords => $conf->{keywords},
+        oauth    => $conf->{oauth},
     }, $class;
 
     my $filter = $self->filter($conf);
@@ -123,7 +124,10 @@ sub resolve_user_id {
     my ($self, $name) = @_;
 
     $log->debug("Resolving user_id for $name");
-    my $nt  = Net::Twitter->new( traits => ['API::REST'] );
+    my $nt  = Net::Twitter->new(
+        traits => ['API::RESTv1_1'],
+        %{ $self->{oauth} },
+    );
 
     my $id = $self->{buffer}->get_user_id($name);
     unless (defined $id) {
