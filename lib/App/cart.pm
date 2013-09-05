@@ -16,6 +16,9 @@ use Log::Any '$log';
 sub new {
     my ($class, %opts) = @_;
 
+    # clean undefined options, which otherwise will clobber the defaults
+    %opts = map { $_ => $opts{$_} } grep { defined $opts{$_} } keys %opts;
+
     my $self = bless {
         home     => "$ENV{HOME}/.cart",
         conffile => 'cart.yml',
