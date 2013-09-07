@@ -11,6 +11,8 @@ use AnyEvent::DateTime::Cron;
 
 use App::cart::Buffer;
 
+use Encode;
+
 sub new {
     my ($class, $conf) = @_;
 
@@ -116,14 +118,13 @@ sub tweet {
 
     my $tweet = $self->{buffer}->bshift;
     if (defined $tweet and defined $tweet->{data}) {
-        my $text = $tweet->{data};
+        my $text = decode('UTF-8', $tweet->{data});
 
         # Delete our keywords
         my @kw   = @{ $self->{keywords} };
         foreach (@kw) {
             $text =~ s/$_//;
         }
-        utf8::decode($text);
 
         my $tweeted = 0;
         try {
