@@ -26,10 +26,10 @@ sub new {
         maxrate   => $conf->{maxrate},
         keywords  => $conf->{keywords},
     }, $class;
-    
+
     # Get an authenticated Twitter client
     $self->{nt} = Net::Twitter->new(
-        traits => [qw/OAuth API::REST/],
+        traits => [qw/API::RESTv1_1/],
         %{ $conf->{oauth} }
     );
 

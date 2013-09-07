@@ -35,7 +35,7 @@ SKIP: {
 
     # instantiate a twitter client so we can tweet something
     my $nt   = Net::Twitter->new(
-        traits => [qw/OAuth API::REST/],
+        traits => [qw/API::RESTv1_1/],
         %{ $conf->{oauth} },
     );
 
