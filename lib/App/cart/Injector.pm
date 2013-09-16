@@ -131,7 +131,7 @@ sub tweet {
             $self->{nt}->update($text);
             $tweeted = 1;
         } catch {
-            $log->error("Couldn't update: $@");
+            $log->error("Couldn't update: $_");
         };
 
         $log->info("Just tweeted: $text" ) if $tweeted;
