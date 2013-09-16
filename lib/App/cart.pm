@@ -181,6 +181,10 @@ publishtimes:
     - '18:00'
     - '21:00'
 
+delete_keywords: 0
+keywords:
+    - twitter
+
 CONF
     close CONFFILE;
     $log->debug("Dumped conf file to '$self->{home}/$self->{conffile}'");

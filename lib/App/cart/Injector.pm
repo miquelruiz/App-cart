@@ -27,6 +27,7 @@ sub new {
         todotimes => \@todotimes,
         maxrate   => $conf->{maxrate},
         keywords  => $conf->{keywords},
+        delete_kw => $conf->{delete_keywords},
     }, $class;
 
     # Get an authenticated Twitter client
@@ -120,10 +121,11 @@ sub tweet {
     if (defined $tweet and defined $tweet->{data}) {
         my $text = decode('UTF-8', $tweet->{data});
 
-        # Delete our keywords
-        my @kw   = @{ $self->{keywords} };
-        foreach (@kw) {
-            $text =~ s/$_//;
+        # Delete keywords if needed
+        if ($self->{delete_kw}) {
+            foreach (@{ $self->{keywords} }) {
+                $text =~ s/$_//;
+            }
         }
 
         my $tweeted = 0;
