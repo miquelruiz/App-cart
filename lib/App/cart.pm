@@ -185,6 +185,8 @@ delete_keywords: 0
 keywords:
     - twitter
 
+tweet_mode: new_tweet
+
 CONF
     close CONFFILE;
     $log->debug("Dumped conf file to '$self->{home}/$self->{conffile}'");

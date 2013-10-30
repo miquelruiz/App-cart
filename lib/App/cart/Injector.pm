@@ -11,6 +11,11 @@ use AnyEvent::DateTime::Cron;
 
 use App::cart::Buffer;
 
+my %tweet_mode = (
+    new_tweet => 'tweet',
+    retweet   => 'retweet',
+);
+
 sub new {
     my ($class, $conf) = @_;
 
@@ -20,12 +25,13 @@ sub new {
     my @todotimes = @{ $conf->{publishtimes} };
 
     my $self = bless {
-        buffer    => App::cart::Buffer->new($conf),
-        alltimes  => \@alltimes,
-        todotimes => \@todotimes,
-        maxrate   => $conf->{maxrate},
-        keywords  => $conf->{keywords},
-        delete_kw => $conf->{delete_keywords},
+        buffer        => App::cart::Buffer->new($conf),
+        alltimes      => \@alltimes,
+        todotimes     => \@todotimes,
+        maxrate       => $conf->{maxrate},
+        keywords      => $conf->{keywords},
+        delete_kw     => $conf->{delete_keywords},
+        tweet_handler => $tweet_mode{$conf->{tweet_mode}},
     }, $class;
 
     # Get an authenticated Twitter client
@@ -105,7 +111,17 @@ sub reeschedule {
         after    => 0,
         interval => $interval,
         cb       => sub {
-            $self->tweet;
+            my $handler = $self->{tweet_handler};
+
+            my $tweet = $self->{buffer}->bshift;
+            if (defined $tweet) {
+                $self->$handler($tweet)
+            } else {
+                # Stop publication
+                undef $self->{publisher};
+                $log->debug('Publication stopped: no more buffered tweets');
+            }
+
             $self->{tweets_left} = $self->{tweets_left} - 1;
             undef $self->{publisher} unless $self->{tweets_left};
         }
@@ -113,34 +129,37 @@ sub reeschedule {
 };
 
 sub tweet {
-    my ($self) = @_;
+    my ($self, $tweet) = @_;
 
-    my $tweet = $self->{buffer}->bshift;
-    if (defined $tweet and defined $tweet->{data}) {
-        my $text = $tweet->{data};
+    return unless $tweet->{data};
+    my $text = $tweet->{data};
 
-        # Delete keywords if needed
-        if ($self->{delete_kw}) {
-            foreach (@{ $self->{keywords} }) {
-                $text =~ s/$_//;
-            }
+    # Delete keywords if needed
+    if ($self->{delete_kw}) {
+        foreach (@{ $self->{keywords} }) {
+            $text =~ s/$_//;
         }
-
-        my $tweeted = 0;
-        try {
-            $self->{nt}->update($text);
-            $tweeted = 1;
-        } catch {
-            $log->error("Couldn't update: $_");
-        };
-
-        $log->info("Just tweeted: $text" ) if $tweeted;
-
-    } else {
-        # Stop publication
-        undef $self->{publisher};
-        $log->debug('Publication stopped: no more buffered tweets');
     }
+
+    try {
+        $self->{nt}->update($text);
+        $log->info("Just tweeted: $text");
+    } catch {
+        $log->error("Couldn't update: $_");
+    };
+
+}
+
+sub retweet {
+    my ($self, $tweet) = @_;
+    return unless $tweet->{id};
+
+    try {
+        $self->{nt}->retweet($tweet->{id});
+        $log->info("Just retweeted: " . $tweet->{data});
+    } catch {
+        $log->error("Couldn't retweet: $_");
+    };
 }
 
 1;
