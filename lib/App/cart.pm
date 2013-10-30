@@ -185,6 +185,8 @@ delete_keywords: 0
 keywords:
     - twitter
 
+inject_as: update
+
 CONF
     close CONFFILE;
     $log->debug("Dumped conf file to '$self->{home}/$self->{conffile}'");
