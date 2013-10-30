@@ -26,6 +26,7 @@ sub new {
         maxrate   => $conf->{maxrate},
         keywords  => $conf->{keywords},
         delete_kw => $conf->{delete_keywords},
+        inject_as => $conf->{inject_as},
     }, $class;
 
     # Get an authenticated Twitter client
@@ -115,26 +116,35 @@ sub reeschedule {
 sub tweet {
     my ($self) = @_;
 
+    my %valid_inject_as = map { $_ => 1 } qw(update retweet);
+    if (! exists $valid_inject_as{ $self->{inject_as} }) {
+        undef $self->{publisher};
+        $log->debug('Publication stopped: invalid inject_as in config');
+        return;
+    }
+
+    my $inject_as = $self->{inject_as};
+    my $field = $inject_as eq 'retweet' ? 'id' : 'data';
     my $tweet = $self->{buffer}->bshift;
-    if (defined $tweet and defined $tweet->{data}) {
-        my $text = $tweet->{data};
+    if (defined $tweet and defined $tweet->{$field}) {
+        my $arg = $tweet->{$field};
 
         # Delete keywords if needed
-        if ($self->{delete_kw}) {
+        if ($inject_as eq 'update' and $self->{delete_kw}) {
             foreach (@{ $self->{keywords} }) {
-                $text =~ s/$_//;
+                $arg =~ s/$_//;
             }
         }
 
         my $tweeted = 0;
         try {
-            $self->{nt}->update($text);
+            $self->{nt}->$inject_as($arg);
             $tweeted = 1;
         } catch {
-            $log->error("Couldn't update: $_");
+            $log->error("Couldn't $inject_as: $_");
         };
 
-        $log->info("Just tweeted: $text" ) if $tweeted;
+        $log->info("Just did $inject_as: $arg" ) if $tweeted;
 
     } else {
         # Stop publication
