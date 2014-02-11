@@ -126,6 +126,7 @@ sub resolve_user_id {
     $log->debug("Resolving user_id for $name");
     my $nt  = Net::Twitter->new(
         traits => ['API::RESTv1_1'],
+        ssl    => 1,
         %{ $self->{oauth} },
     );
 

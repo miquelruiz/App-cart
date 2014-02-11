@@ -37,6 +37,7 @@ sub new {
     # Get an authenticated Twitter client
     $self->{nt} = Net::Twitter->new(
         traits => [qw/API::RESTv1_1/],
+        ssl    => 1,
         %{ $conf->{oauth} }
     );
 
